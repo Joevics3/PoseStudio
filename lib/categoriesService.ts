@@ -57,16 +57,19 @@ const categoryDefinitions: Omit<Category, 'count'>[] = [
 
 export async function fetchCategoriesWithCounts(): Promise<Category[]> {
   try {
-    // Fetch counts for each category from Supabase
+    // Fetch counts and first pose image for each category from Supabase
     const categoriesWithCounts = await Promise.all(
       categoryDefinitions.map(async (category) => {
         try {
-          const { count, error } = await supabase
+          // Fetch count and first pose image in a single query
+          const { data, count, error } = await supabase
             .from('poses')
-            .select('*', { count: 'exact', head: true })
-            .eq('category', category.id);
+            .select('imageUrl', { count: 'exact' })
+            .eq('category', category.id)
+            .order('created_at', { ascending: false })
+            .limit(1);
 
-          // If table doesn't exist, return 0 count
+          // If table doesn't exist, return 0 count with fallback image
           if (error && (error.code === 'PGRST116' || error.code === '42P01')) {
             return {
               ...category,
@@ -74,8 +77,14 @@ export async function fetchCategoriesWithCounts(): Promise<Category[]> {
             };
           }
 
+          // Use the first pose's image if available, otherwise use the fallback
+          const imageUrl = data && data.length > 0 && data[0].imageUrl 
+            ? data[0].imageUrl 
+            : category.imageUrl;
+
           return {
             ...category,
+            imageUrl,
             count: error ? 0 : (count || 0),
           };
         } catch (err) {
