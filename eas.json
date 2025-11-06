@@ -26,9 +26,6 @@
       "android": {
         "buildType": "app-bundle"
       },
-      "ios": {
-        "bundleIdentifier": "com.posestudio.app"
-      },
       "env": {
         "NODE_ENV": "production"
       }
