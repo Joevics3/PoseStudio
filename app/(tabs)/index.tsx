@@ -12,9 +12,11 @@ import {
 import { useRouter } from 'expo-router';
 import { useCategories } from '@/hooks/useCategories';
 import { Search, TrendingUp } from 'lucide-react-native';
+import { AdBanner } from '@/components/AdBanner';
 
 const { width } = Dimensions.get('window');
-const cardWidth = (width - 48) / 2;
+// Calculate card width: (screen width - left padding - right padding - gap between items) / 2
+const cardWidth = (width - 48 - 16) / 2;
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -77,6 +79,7 @@ export default function HomeScreen() {
             </View>
           )}
         </View>
+        <AdBanner />
       </ScrollView>
     </View>
   );
@@ -153,7 +156,7 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    justifyContent: 'space-between',
   },
   card: {
     width: cardWidth,
@@ -161,6 +164,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     position: 'relative',
+    marginBottom: 16,
   },
   cardImage: {
     width: '100%',

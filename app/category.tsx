@@ -12,14 +12,18 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { usePoses } from '@/hooks/usePoses';
 import { ArrowLeft, Grid3x3 } from 'lucide-react-native';
+import { AdBanner } from '@/components/AdBanner';
+import { useInterstitialAd } from '@/hooks/useInterstitialAd';
 
 const { width } = Dimensions.get('window');
-const cardWidth = (width - 56) / 2;
+// Calculate card width: (screen width - left padding - right padding - gap between items) / 2
+const cardWidth = (width - 48 - 16) / 2;
 
 export default function CategoryScreen() {
   const router = useRouter();
   const { id, name } = useLocalSearchParams<{ id: string; name: string }>();
   const { poses: categoryPoses, loading, error, refresh } = usePoses(id || '');
+  const { showAd } = useInterstitialAd();
 
   return (
     <View style={styles.container}>
@@ -81,7 +85,9 @@ export default function CategoryScreen() {
                 <TouchableOpacity
                   key={pose.id}
                   style={styles.card}
-                  onPress={() =>
+                  onPress={async () => {
+                    // Show interstitial ad before navigating
+                    await showAd();
                     router.push({
                       pathname: '/pose-detail',
                       params: {
@@ -91,8 +97,8 @@ export default function CategoryScreen() {
                         description: pose.description,
                         imageUrl: pose.imageUrl,
                       },
-                    })
-                  }
+                    });
+                  }}
                   activeOpacity={0.8}>
                   <Image
                     source={{ uri: pose.imageUrl }}
@@ -110,6 +116,7 @@ export default function CategoryScreen() {
             </View>
           </>
         )}
+        <AdBanner />
       </ScrollView>
     </View>
   );
@@ -174,7 +181,7 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    justifyContent: 'space-between',
     paddingHorizontal: 24,
   },
   card: {
@@ -184,6 +191,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     backgroundColor: '#1a1a1a',
+    marginBottom: 16,
   },
   cardImage: {
     width: '100%',

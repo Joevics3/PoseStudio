@@ -9,7 +9,6 @@ import {
   ScrollView,
   ActivityIndicator,
   Modal,
-  Share,
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -20,6 +19,8 @@ import { Pose } from '@/types/types';
 import { ArrowLeft, Heart, Share2, Download, X, Sparkles } from 'lucide-react-native';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as MediaLibrary from 'expo-media-library';
+import { useInterstitialAd } from '@/hooks/useInterstitialAd';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -43,6 +44,8 @@ export default function PoseDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const { showAd } = useInterstitialAd();
   
   // All hooks must be called before any conditional returns
   const scale = useSharedValue(1);
@@ -106,45 +109,16 @@ export default function PoseDetailScreen() {
     if (!pose) return;
     
     try {
-      const result = await Share.share({
-        message: `Check out this pose: ${pose.title}\n${pose.description}`,
-        url: pose.imageUrl,
-        title: pose.title,
-      });
-
-      if (result.action === Share.sharedAction) {
-        if (__DEV__) {
-          if (result.activityType) {
-            console.log('Shared with activity type:', result.activityType);
-          } else {
-            console.log('Shared successfully');
-          }
-        }
-      } else if (result.action === Share.dismissedAction) {
-        if (__DEV__) {
-          console.log('Share dismissed');
-        }
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to share. Please try again.');
-      if (__DEV__) {
-        console.error('Error sharing:', error);
-      }
-    }
-  };
-
-  const handleDownload = async () => {
-    if (!pose) return;
-    
-    try {
-      setDownloading(true);
+      setSharing(true);
       
-      // Get the file extension from the URL
+      // Show interstitial ad before sharing
+      await showAd();
+      
+      // First, download the image
       const fileExtension = pose.imageUrl.split('.').pop()?.split('?')[0] || 'jpg';
       const fileName = `${pose.title.replace(/\s+/g, '_')}.${fileExtension}`;
+      const fileUri = FileSystem.cacheDirectory + fileName;
       
-      // Download the file
-      const fileUri = FileSystem.documentDirectory + fileName;
       const downloadResult = await FileSystem.downloadAsync(pose.imageUrl, fileUri);
       
       if (downloadResult.status === 200) {
@@ -155,9 +129,62 @@ export default function PoseDetailScreen() {
           // Share the downloaded file
           await Sharing.shareAsync(downloadResult.uri);
         } else {
-          // If sharing is not available, show success message
-          Alert.alert('Success', 'Image downloaded successfully!');
+          Alert.alert('Error', 'Sharing is not available on this device.');
         }
+      } else {
+        throw new Error('Failed to download image for sharing');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to share image. Please try again.');
+      if (__DEV__) {
+        console.error('Error sharing:', error);
+      }
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!pose) return;
+    
+    try {
+      setDownloading(true);
+      
+      // Show interstitial ad before downloading
+      await showAd();
+      
+      // Request media library permissions
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Please grant permission to save images to your photo library.'
+        );
+        return;
+      }
+      
+      // Get the file extension from the URL
+      const fileExtension = pose.imageUrl.split('.').pop()?.split('?')[0] || 'jpg';
+      const fileName = `${pose.title.replace(/\s+/g, '_')}.${fileExtension}`;
+      
+      // Download the file to cache directory first
+      const fileUri = FileSystem.cacheDirectory + fileName;
+      const downloadResult = await FileSystem.downloadAsync(pose.imageUrl, fileUri);
+      
+      if (downloadResult.status === 200) {
+        // Save to photo library
+        const asset = await MediaLibrary.createAssetAsync(downloadResult.uri);
+        
+        // Try to get or create the album
+        let album = await MediaLibrary.getAlbumAsync('Pose Studio');
+        if (!album) {
+          album = await MediaLibrary.createAlbumAsync('Pose Studio', asset, false);
+        } else {
+          await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+        }
+        
+        Alert.alert('Success', 'Image saved to your photo library!');
       } else {
         throw new Error('Download failed');
       }
@@ -220,8 +247,13 @@ export default function PoseDetailScreen() {
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.iconButton}
-              onPress={handleShare}>
-              <Share2 size={22} color="#fff" strokeWidth={2.5} />
+              onPress={handleShare}
+              disabled={sharing}>
+              {sharing ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Share2 size={22} color="#fff" strokeWidth={2.5} />
+              )}
             </TouchableOpacity>
           </View>
 

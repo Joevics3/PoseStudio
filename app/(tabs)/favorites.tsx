@@ -11,9 +11,11 @@ import {
 import { useRouter } from 'expo-router';
 import { useFavorites } from '@/contexts/FavoritesContext';
 import { Heart, Trash2 } from 'lucide-react-native';
+import { AdBanner } from '@/components/AdBanner';
 
 const { width } = Dimensions.get('window');
-const cardWidth = (width - 56) / 2;
+// Calculate card width: (screen width - left padding - right padding - gap between items) / 2
+const cardWidth = (width - 48 - 16) / 2;
 
 export default function FavoritesScreen() {
   const router = useRouter();
@@ -112,6 +114,7 @@ export default function FavoritesScreen() {
             ))}
           </View>
         )}
+        <AdBanner />
       </ScrollView>
     </View>
   );
@@ -206,13 +209,14 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    justifyContent: 'space-between',
     paddingHorizontal: 24,
   },
   card: {
     width: cardWidth,
     height: cardWidth * 1.4,
     position: 'relative',
+    marginBottom: 16,
   },
   cardTouchable: {
     width: '100%',
